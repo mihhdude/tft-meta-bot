@@ -62,9 +62,9 @@ def translate_comp_name(eng_name):
     return eng_name
 
 def clean_raw_item_name(raw_text):
-    """Quét sạch rác từ mã nguồn TFT (VD: TFT17_Item_...)"""
-    clean = re.sub(r'TFT\d+_Item_', '', raw_text)
-    clean = re.sub(r'TFT\d+_', '', clean)
+    # Quét sạch 100% mọi tiền tố chứa chữ TFT (kể cả có số hay không)
+    clean = re.sub(r'TFT\d*_Item_', '', raw_text)
+    clean = re.sub(r'TFT\d*_', '', clean)
     clean = re.sub(r'Tier\d+_', '', clean)
     clean = re.sub(r'AnimaSquadItem_', '', clean)
     clean = clean.replace('Item', '').replace('  ', ' ')
@@ -111,14 +111,10 @@ with sync_playwright() as p:
             }
             if(!row) return;
 
-            // FIX 1: TÌM TÊN ĐỘI HÌNH BẰNG CÁCH LỌC TEXT XỊN HƠN
-            let textNodes = Array.from(row.querySelectorAll('*'))
-                .filter(el => el.childNodes.length === 1 && el.childNodes[0].nodeType === 3)
-                .map(el => el.textContent.trim())
-                .filter(txt => txt.length > 3 && !txt.includes('%') && isNaN(txt));
-            
-            const ignoreList = ["Hard", "Medium", "Easy", "Fast 8", "Fast 9", "lvl 7", "Avg Place", "Pick Rate", "Win Rate", "Top 4 Rate", "Situational"];
-            let compName = textNodes.find(txt => !ignoreList.includes(txt) && txt !== "S" && txt !== "A" && txt !== "B") || "Unknown";
+            // FIX: Lọc lấy tên đội hình chính xác từ text hiển thị
+            let lines = row.innerText.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+            const ignoreList = ["S", "A", "B", "Hard", "Medium", "Easy", "Fast 8", "Fast 9", "lvl 7", "Situational", "Avg Place", "Pick Rate", "Win Rate", "Top 4 Rate"];
+            let compName = lines.find(txt => !ignoreList.includes(txt) && txt.length > 3 && !txt.includes('%') && isNaN(txt)) || "Unknown";
 
             let units = [];
             let carryItems = [];
@@ -151,7 +147,6 @@ with sync_playwright() as p:
                 }
             });
 
-            // FIX 2: CHỈ LẤY % CUỐI CÙNG (CHÍNH LÀ TOP 4 RATE)
             let pcts = Array.from(row.querySelectorAll('*'))
                 .filter(el => el.textContent.includes('%') && el.textContent.length < 7 && el.children.length === 0)
                 .map(el => el.textContent.trim());
@@ -172,7 +167,7 @@ with sync_playwright() as p:
         try:
             vn_name = translate_comp_name(comp['comp'])
             
-            # FIX 3: DỌN DẸP RÁC TRƯỚC KHI DỊCH
+            # Quét rác cực mạnh trước khi mang đi dịch
             clean_items = clean_raw_item_name(comp['items'])
             vn_items = translate_items(clean_items)
             
