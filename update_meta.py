@@ -33,14 +33,11 @@ client = gspread.authorize(
 
 print("Google auth OK")
 
-sheet =
-client.open(
-"MetaTFT"
-).sheet1
+sheet = client.open("MetaTFT").sheet1
 
 sheet.update(
-"A1",
-"hello"
+    "A1",
+    [["hello"]]
 )
 
 print("write ok")
