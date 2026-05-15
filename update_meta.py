@@ -1,9 +1,7 @@
 import os
 import json
 import gspread
-from oauth2client.service_account import (
-    ServiceAccountCredentials
-)
+from oauth2client.service_account import ServiceAccountCredentials
 
 scope = [
 'https://spreadsheets.google.com/feeds',
@@ -29,9 +27,15 @@ client = gspread.authorize(
 
 print("Google auth OK")
 
-files = client.openall()
-
-print(
-"Nhìn thấy:",
-[f.title for f in files]
+sheet = (
+    client
+    .open("Meta TFT")        # TÊN FILE
+    .worksheet("MetaTFT")    # TÊN TAB
 )
+
+sheet.update(
+    "A1",
+    [["hello"]]
+)
+
+print("write ok")
