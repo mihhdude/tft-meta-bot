@@ -60,16 +60,22 @@ with sync_playwright() as p:
 
 lines = text.split("\n")
 
-for i,line in enumerate(lines):
+rows = [["Comp","AvgPlace","Top4","WinRate"]]
 
-    if "Top 4 Rate" in line:
+for i, line in enumerate(lines):
+
+    if line == "Avg Place":
 
         try:
 
-            comp = lines[i-8]
-            avg = lines[i-3]
-            top4 = lines[i+1]
-            win = lines[i-1]
+            comp = lines[i-10]      # tên comp
+
+            avg = lines[i+1]
+
+            win = lines[i+5]
+
+            top4 = lines[i+9]
+
 
             rows.append([
                 comp,
