@@ -1,0 +1,35 @@
+name: update-meta
+
+on:
+
+  workflow_dispatch:
+
+jobs:
+
+  update:
+
+    runs-on:
+      ubuntu-latest
+
+    steps:
+
+      - uses:
+          actions/checkout@v4
+
+      - uses:
+          actions/setup-python@v5
+
+        with:
+          python-version: "3.11"
+
+      - run: |
+          pip install gspread
+          pip install oauth2client
+
+      - run:
+          python update_meta.py
+
+        env:
+
+          GOOGLE_CREDS:
+            ${{ secrets.GOOGLE_CREDS }}
