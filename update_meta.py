@@ -1,6 +1,7 @@
 import os
 import json
 import gspread
+import re
 
 from playwright.sync_api import sync_playwright
 from oauth2client.service_account import ServiceAccountCredentials
@@ -9,8 +10,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 # TỪ ĐIỂN DỊCH VÀ ĐẢO CHỮ
 # =========================
 
-# Dịch Items
 ITEM_DICT = {
+    # Đồ chuẩn
     "Deathblade": "Kiếm Tử Thần", "LastWhisper": "Cung Xanh",
     "PowerGauntlet": "Găng Bảo Thạch", "JeweledGauntlet": "Găng Bảo Thạch",
     "FrozenHeart": "Tim Băng", "ProtectorsVow": "Lời Thề Hộ Vệ",
@@ -25,13 +26,19 @@ ITEM_DICT = {
     "SpearOfShojin": "Ngọn Giáo Shojin", "BlueBuff": "Bùa Xanh",
     "TitansResolve": "Quyền Năng", "Quicksilver": "Khăn Giải Thuật",
     "ThiefsGloves": "Găng Đạo Tặc", "HandOfJustice": "Bàn Tay Công Lý",
-    "Evenshroud": "Giáp Vai Nguyệt Thần", "NashorsTooth": "Nanh Nashor",
+    "Evenshroud": "Giáp Vai", "NashorsTooth": "Nanh Nashor",
     "AdaptiveHelm": "Mũ Thích Nghi", "SteraksGage": "Móng Vuốt Sterak",
     "HextechGunblade": "Kiếm Súng", "Guardbreaker": "Chùy Xuyên Phá",
-    "EdgeOfNight": "Áo Choàng Bóng Tối", "SteadfastHeart": "Trái Tim Kiên Định"
+    "EdgeOfNight": "Áo Choàng Bóng Tối", "SteadfastHeart": "Trái Tim Kiên Định",
+    
+    # Đồ Cổ Đại / Artifact / Chế độ Revival
+    "RedBuff": "Bùa Đỏ", "GuardianAngel": "Giáp Thiên Thần",
+    "MadredsBloodrazor": "Đao Madred", "Leviathan": "Giáp Tâm Linh",
+    "UnstableConcoction": "Dược Phẩm Bất Ổn", "SpectralGauntlet": "Găng Ma Quỷ",
+    "BattleBunnyCrossbow": "Nỏ Siêu Thú", "StargazerEmblem": "Ấn Chiêm Tinh",
+    "ChemicalCapacitorMod": "Lõi Hóa Kỹ", "PsyOps": "Đặc Vụ"
 }
 
-# Dịch Hệ/Tộc
 TRAIT_DICT = {
     "Meeple": "Tinh Linh Chuông", "Vanguard": "Tiên Phong",
     "Marauder": "Toán Cướp", "Dark Star": "Hắc Tinh",
@@ -41,19 +48,27 @@ TRAIT_DICT = {
     "Bruiser": "Đấu Sĩ", "Sniper": "Bắn Tỉa",
     "Challenger": "Thách Đấu", "Invoker": "Dẫn Truyền",
     "Bastion": "Can Trường", "Mage": "Pháp Sư",
-    "Sorcerer": "Phù Thủy", "Brawler": "Đấu Sĩ"
+    "Sorcerer": "Phù Thủy"
 }
 
 def translate_comp_name(eng_name):
-    """Hàm này để biến 'Meeple Corki' thành 'Corki Tinh Linh Chuông'"""
+    if eng_name == "Unknown": return "Đội hình Chưa Rõ"
     parts = eng_name.split(' ')
     if len(parts) >= 2:
         trait = parts[0]
         champ = " ".join(parts[1:])
-        # Dịch trait nếu có trong từ điển
         trait_vn = TRAIT_DICT.get(trait, trait)
         return f"{champ} {trait_vn}"
     return eng_name
+
+def clean_raw_item_name(raw_text):
+    """Quét sạch rác từ mã nguồn TFT (VD: TFT17_Item_...)"""
+    clean = re.sub(r'TFT\d+_Item_', '', raw_text)
+    clean = re.sub(r'TFT\d+_', '', clean)
+    clean = re.sub(r'Tier\d+_', '', clean)
+    clean = re.sub(r'AnimaSquadItem_', '', clean)
+    clean = clean.replace('Item', '').replace('  ', ' ')
+    return clean
 
 def translate_items(text):
     for en, vi in ITEM_DICT.items():
@@ -82,7 +97,6 @@ with sync_playwright() as p:
     page.goto("https://www.metatft.com/comps", timeout=60000)
     page.wait_for_timeout(10000)
 
-    # Javascript nâng cao để bóc đúng tên Comp và Đồ theo tướng
     comps_data = page.evaluate('''() => {
         let results = [];
         let labels = Array.from(document.querySelectorAll('*')).filter(el => el.textContent.trim() === 'Top 4 Rate' && el.children.length === 0);
@@ -97,9 +111,14 @@ with sync_playwright() as p:
             }
             if(!row) return;
 
-            // 1. LẤY TÊN COMP CHUẨN (Thường nằm ở div to nhất có text đầu tiên)
-            let nameEl = row.querySelector('div[class*="CompName"]') || row.querySelector('div[style*="font-weight"]');
-            let compName = nameEl ? nameEl.innerText.split('\\n')[0].trim() : "Unknown";
+            // FIX 1: TÌM TÊN ĐỘI HÌNH BẰNG CÁCH LỌC TEXT XỊN HƠN
+            let textNodes = Array.from(row.querySelectorAll('*'))
+                .filter(el => el.childNodes.length === 1 && el.childNodes[0].nodeType === 3)
+                .map(el => el.textContent.trim())
+                .filter(txt => txt.length > 3 && !txt.includes('%') && isNaN(txt));
+            
+            const ignoreList = ["Hard", "Medium", "Easy", "Fast 8", "Fast 9", "lvl 7", "Avg Place", "Pick Rate", "Win Rate", "Top 4 Rate", "Situational"];
+            let compName = textNodes.find(txt => !ignoreList.includes(txt) && txt !== "S" && txt !== "A" && txt !== "B") || "Unknown";
 
             let units = [];
             let carryItems = [];
@@ -126,15 +145,17 @@ with sync_playwright() as p:
                 }
                 
                 if(itemNodes.length > 0) {
-                    let items = [...new Set(itemNodes.map(i => i.getAttribute('href').split('/').pop().replace('TFT_Item_', '')))];
+                    let items = [...new Set(itemNodes.map(i => i.getAttribute('href').split('/').pop()))];
                     carryItems.push(champName + ": " + items.join(', '));
                     if(!primaryCarry) primaryCarry = champName;
                 }
             });
 
-            let top4 = "N/A";
-            let pct = Array.from(row.querySelectorAll('*')).find(el => el.textContent.includes('%') && el.textContent.length < 7);
-            if(pct) top4 = pct.textContent.trim();
+            // FIX 2: CHỈ LẤY % CUỐI CÙNG (CHÍNH LÀ TOP 4 RATE)
+            let pcts = Array.from(row.querySelectorAll('*'))
+                .filter(el => el.textContent.includes('%') && el.textContent.length < 7 && el.children.length === 0)
+                .map(el => el.textContent.trim());
+            let top4 = pcts.length > 0 ? pcts[pcts.length - 1] : "N/A";
 
             results.push({
                 comp: compName,
@@ -149,14 +170,16 @@ with sync_playwright() as p:
 
     for comp in comps_data:
         try:
-            # Dịch tên đội hình kiểu 'Meeple Corki' -> 'Corki Tinh Linh Chuông'
             vn_name = translate_comp_name(comp['comp'])
-            vn_items = translate_items(comp['items'])
+            
+            # FIX 3: DỌN DẸP RÁC TRƯỚC KHI DỊCH
+            clean_items = clean_raw_item_name(comp['items'])
+            vn_items = translate_items(clean_items)
             
             rows.append([vn_name, comp['carry'], vn_items, comp['units'], comp['top4']])
             print(f"Done: {vn_name}")
-        except:
-            pass
+        except Exception as e:
+            print(f"Lỗi dòng {comp['comp']}: {e}")
 
     browser.close()
 
