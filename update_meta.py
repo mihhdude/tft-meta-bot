@@ -12,9 +12,11 @@ scope = [
 'https://www.googleapis.com/auth/drive'
 ]
 
+
 creds = json.loads(
     os.environ["GOOGLE_CREDS"]
 )
+
 
 credentials = (
     ServiceAccountCredentials
@@ -24,7 +26,9 @@ credentials = (
     )
 )
 
-client =
-gspread.authorize(
+
+client = gspread.authorize(
     credentials
 )
+
+print("Google auth OK")
