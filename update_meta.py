@@ -7,12 +7,14 @@ from oauth2client.service_account import (
     ServiceAccountCredentials
 )
 
-# ---------------- GOOGLE ----------------
+# =========================
+# GOOGLE SHEETS
+# =========================
 
 scope = [
-'https://spreadsheets.google.com/feeds',
-'https://www.googleapis.com/auth/spreadsheets',
-'https://www.googleapis.com/auth/drive'
+    'https://spreadsheets.google.com/feeds',
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
 ]
 
 creds = json.loads(
@@ -27,23 +29,29 @@ credentials = (
     )
 )
 
-client = gspread.authorize(credentials)
+client = gspread.authorize(
+    credentials
+)
 
 sheet = (
     client
-    .open("Meta TFT")
-    .worksheet("MetaTFT")
+    .open("Meta TFT")      # tên FILE
+    .worksheet("MetaTFT")  # tên TAB
 )
 
-rows=[[
-"Comp",
-"Carry",
-"Items",
-"Units",
-"Top4"
+print("Google OK")
+
+rows = [[
+    "Comp",
+    "Carry",
+    "Items",
+    "Units",
+    "Top4"
 ]]
 
-# ---------------- CRAWL ----------------
+# =========================
+# CRAWL METATFT
+# =========================
 
 with sync_playwright() as p:
 
@@ -58,7 +66,11 @@ with sync_playwright() as p:
         timeout=60000
     )
 
-    page.wait_for_timeout(8000)
+    page.wait_for_timeout(
+        10000
+    )
+
+    print("Meta loaded")
 
     body = page.locator(
         "body"
@@ -66,95 +78,142 @@ with sync_playwright() as p:
 
     lines = body.split("\n")
 
-    for i,line in enumerate(lines):
+    count = 0
 
-        if line=="Top 4 Rate":
+    for i, line in enumerate(lines):
+
+        if line == "Top 4 Rate":
 
             try:
 
-                top4=lines[i+1]
+                if count >= 10:
+                    break
 
-                units=[]
+                top4 = lines[i+1]
 
-                for j in range(i-18,i):
+                units = []
 
-                    txt=lines[j]
+                for j in range(i-18, i):
+
+                    txt = lines[j]
 
                     if (
-                        len(txt)>2
+                        len(txt) > 2
                         and "%" not in txt
                         and txt not in [
-                        "Medium",
-                        "Hard",
-                        "Fast 8",
-                        "Fast 9",
-                        "lvl 7",
-                        "S"
+                            "S",
+                            "A",
+                            "B",
+                            "Hard",
+                            "Medium",
+                            "Easy",
+                            "Fast 8",
+                            "Fast 9",
+                            "lvl 7"
                         ]
                     ):
-
                         units.append(txt)
 
-                units=list(
+                units = list(
                     dict.fromkeys(units)
                 )
 
-                if len(units)<4:
+                if len(units) < 4:
                     continue
 
 
-                carry = units[0]      # carry chính
-                comp = units[0]
-
-                # build item mặc định
-                item_map={
-
-                    "Corki":
-                    "Guinsoo, IE, Last Whisper",
-
-                    "Vex":
-                    "Blue Buff, JG, GS",
-
-                    "Master Yi":
-                    "BT, Titan, Guinsoo",
-
-                    "Nunu":
-                    "Warmog, Stoneplate, DClaw",
-
-                    "Lulu":
-                    "Blue Buff, Shojin, JG"
-                }
+                carry = units[0]
+                comp = carry
 
 
-                items = item_map.get(
-                    carry,
-                    ""
-                )
+                # ---------- ITEM BUILD ----------
+
+                item_links = page.locator(
+                    'a[href*="/items/"]'
+                ).all()
+
+                items = []
+
+                for item in item_links:
+
+                    href = item.get_attribute(
+                        "href"
+                    )
+
+                    if (
+                        href
+                        and "TFT_Item_"
+                        in href
+                    ):
+
+                        name = (
+                            href
+                            .split(
+                                "TFT_Item_"
+                            )[-1]
+                            .replace(
+                                "_",
+                                " "
+                            )
+                        )
+
+                        if (
+                            name not in items
+                        ):
+                            items.append(
+                                name
+                            )
+
 
                 rows.append([
 
                     comp,
+
                     carry,
-                    items,
+
+                    ", ".join(
+                        items[:5]
+                    ),
+
                     ", ".join(
                         units[:8]
                     ),
+
                     top4
 
                 ])
 
-            except:
-                pass
+                count += 1
+
+                print(
+                    "Added:",
+                    comp
+                )
+
+            except Exception as e:
+
+                print(e)
+
 
 
     browser.close()
 
 
+
+# =========================
+# WRITE SHEET
+# =========================
+
 sheet.clear()
 
 sheet.update(
+
     range_name="A1",
+
     values=rows
+
 )
 
-print("Meta updated")
+print(
+    "Meta updated OK"
+)
