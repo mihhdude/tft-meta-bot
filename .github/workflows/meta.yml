@@ -11,23 +11,43 @@ jobs:
 
   update:
 
-    runs-on: ubuntu-latest
+    runs-on:
+      ubuntu-latest
+
 
     steps:
 
-      - uses: actions/checkout@v4
+      - uses:
+          actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+
+      - uses:
+          actions/setup-python@v6
+
         with:
           python-version: "3.11"
 
-      - run: |
+
+      - name:
+          Install libs
+
+        run: |
+
           pip install playwright
           pip install gspread
           pip install oauth2client
 
           playwright install chromium
 
-      - run: python update_meta.py
+
+      - name:
+          Run crawler
+
+        run:
+
+          python update_meta.py
+
         env:
-          GOOGLE_CREDS: ${{ secrets.GOOGLE_CREDS }}
+
+          GOOGLE_CREDS:
+            ${{ secrets.GOOGLE_CREDS }}

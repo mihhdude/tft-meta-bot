@@ -7,7 +7,9 @@ from oauth2client.service_account import (
     ServiceAccountCredentials
 )
 
-# ---------- GOOGLE ----------
+# -------------------
+# GOOGLE AUTH
+# -------------------
 
 scope = [
 'https://spreadsheets.google.com/feeds',
@@ -27,23 +29,31 @@ credentials = (
     )
 )
 
-client = gspread.authorize(credentials)
+client = gspread.authorize(
+    credentials
+)
 
 sheet = (
     client
-    .open("Meta TFT")      # tên FILE
+    .open("Meta TFT")      # tên FILE Google Sheet
     .worksheet("MetaTFT")  # tên TAB
 )
 
+print("Google OK")
+
 
 rows = [[
-"Comp",
-"Carry",
-"Units",
-"Top4"
+    "Comp",
+    "Carry",
+    "Items",
+    "Units",
+    "Top4"
 ]]
 
-# ---------- CRAWL ----------
+
+# -------------------
+# CRAWL META TFT
+# -------------------
 
 with sync_playwright() as p:
 
@@ -71,7 +81,8 @@ with sync_playwright() as p:
 
 lines = text.split("\n")
 
-for i,line in enumerate(lines):
+
+for i, line in enumerate(lines):
 
     if line == "Top 4 Rate":
 
@@ -79,33 +90,71 @@ for i,line in enumerate(lines):
 
             top4 = lines[i+1]
 
-            units=[]
+            units = []
 
-            for j in range(i-15,i):
+            for j in range(i-18, i):
 
-                x=lines[j]
+                txt = lines[j]
 
                 if (
-                    len(x)>2
-                    and "%" not in x
-                    and x not in [
+                    len(txt) > 2
+                    and "%" not in txt
+                    and txt not in [
                         "Medium","Hard","Easy",
                         "Fast 8","Fast 9","lvl 7",
                         "S","A","B"
                     ]
                 ):
-                    units.append(x)
+                    units.append(txt)
 
-            units=list(dict.fromkeys(units))
+            units = list(
+                dict.fromkeys(units)
+            )
+
+            if len(units) < 2:
+                continue
+
 
             comp = units[0]
-            carry = units[1] if len(units)>1 else units[0]
+            carry = units[1]
+
+            # item tạm đoán
+            items = []
+
+            item_pool = [
+
+                "Infinity Edge",
+                "Guinsoo's Rageblade",
+                "Last Whisper",
+                "Bloodthirster",
+                "Jeweled Gauntlet",
+                "Warmog's Armor",
+                "Sunfire Cape",
+                "Blue Buff",
+                "Archangel's Staff"
+
+            ]
+
+            for k in range(
+                max(i-30,0),
+                min(i+30,len(lines))
+            ):
+
+                if lines[k] in item_pool:
+                    items.append(
+                        lines[k]
+                    )
 
             rows.append([
+
                 comp,
                 carry,
-                ", ".join(units[:8]),
+                ", ".join(items),
+                ", ".join(
+                    units[:8]
+                ),
                 top4
+
             ])
 
         except:
