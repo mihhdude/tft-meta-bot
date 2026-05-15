@@ -7,6 +7,8 @@ from oauth2client.service_account import (
     ServiceAccountCredentials
 )
 
+# ---------- GOOGLE ----------
+
 scope = [
 'https://spreadsheets.google.com/feeds',
 'https://www.googleapis.com/auth/spreadsheets',
@@ -29,14 +31,19 @@ client = gspread.authorize(credentials)
 
 sheet = (
     client
-    .open("Meta TFT")
-    .worksheet("MetaTFT")
+    .open("Meta TFT")      # tên FILE
+    .worksheet("MetaTFT")  # tên TAB
 )
 
-rows = [
-    ["Comp","AvgPlace","Top4","WinRate"]
-]
 
+rows = [[
+"Comp",
+"Carry",
+"Units",
+"Top4"
+]]
+
+# ---------- CRAWL ----------
 
 with sync_playwright() as p:
 
@@ -51,37 +58,54 @@ with sync_playwright() as p:
         timeout=60000
     )
 
-    page.wait_for_timeout(8000)
+    page.wait_for_timeout(
+        8000
+    )
 
-    text = page.locator("body").inner_text()
+    text = page.locator(
+        "body"
+    ).inner_text()
 
     browser.close()
 
 
 lines = text.split("\n")
 
-rows = [["Comp","AvgPlace","Top4","WinRate"]]
+for i,line in enumerate(lines):
 
-for i, line in enumerate(lines):
-
-    if line == "Avg Place":
+    if line == "Top 4 Rate":
 
         try:
 
-            comp = lines[i-10]      # tên comp
+            top4 = lines[i+1]
 
-            avg = lines[i+1]
+            units=[]
 
-            win = lines[i+5]
+            for j in range(i-15,i):
 
-            top4 = lines[i+9]
+                x=lines[j]
 
+                if (
+                    len(x)>2
+                    and "%" not in x
+                    and x not in [
+                        "Medium","Hard","Easy",
+                        "Fast 8","Fast 9","lvl 7",
+                        "S","A","B"
+                    ]
+                ):
+                    units.append(x)
+
+            units=list(dict.fromkeys(units))
+
+            comp = units[0]
+            carry = units[1] if len(units)>1 else units[0]
 
             rows.append([
                 comp,
-                avg,
-                top4,
-                win
+                carry,
+                ", ".join(units[:8]),
+                top4
             ])
 
         except:
