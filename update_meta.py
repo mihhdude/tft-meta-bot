@@ -127,42 +127,29 @@ with sync_playwright() as p:
 
 
                 # ---------- ITEM BUILD ----------
+                
+                # Khoanh vùng tìm kiếm: Tìm các container chứa đội hình và lấy đội hình thứ 'count'
+                current_comp = page.locator('div[class*="CompRow"]').nth(count)
 
-                item_links = page.locator(
-                    'a[href*="/items/"]'
-                ).all()
+                # Chỉ lấy các link items NẰM TRONG container của đội hình hiện tại
+                item_links = current_comp.locator('a[href*="/items/"]').all()
 
                 items = []
 
                 for item in item_links:
 
-                    href = item.get_attribute(
-                        "href"
-                    )
+                    href = item.get_attribute("href")
 
-                    if (
-                        href
-                        and "TFT_Item_"
-                        in href
-                    ):
+                    if href and "TFT_Item_" in href:
 
                         name = (
                             href
-                            .split(
-                                "TFT_Item_"
-                            )[-1]
-                            .replace(
-                                "_",
-                                " "
-                            )
+                            .split("TFT_Item_")[-1]
+                            .replace("_", " ")
                         )
 
-                        if (
-                            name not in items
-                        ):
-                            items.append(
-                                name
-                            )
+                        if name not in items:
+                            items.append(name)
 
 
                 rows.append([
