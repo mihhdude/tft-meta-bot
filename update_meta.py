@@ -29,11 +29,13 @@ client = gspread.authorize(credentials)
 
 sheet = (
     client
-    .open("Meta TFT")       # tên FILE
-    .worksheet("MetaTFT")   # tên TAB
+    .open("Meta TFT")
+    .worksheet("MetaTFT")
 )
 
-print("Google OK")
+rows = [
+    ["Comp","AvgPlace","Top4","WinRate"]
+]
 
 
 with sync_playwright() as p:
@@ -49,22 +51,42 @@ with sync_playwright() as p:
         timeout=60000
     )
 
-    page.wait_for_timeout(
-        8000
-    )
+    page.wait_for_timeout(8000)
 
-    text = page.locator(
-        "body"
-    ).inner_text()
+    text = page.locator("body").inner_text()
 
     browser.close()
+
+
+lines = text.split("\n")
+
+for i,line in enumerate(lines):
+
+    if "Top 4 Rate" in line:
+
+        try:
+
+            comp = lines[i-8]
+            avg = lines[i-3]
+            top4 = lines[i+1]
+            win = lines[i-1]
+
+            rows.append([
+                comp,
+                avg,
+                top4,
+                win
+            ])
+
+        except:
+            pass
 
 
 sheet.clear()
 
 sheet.update(
     range_name="A1",
-    values=[[text[:3000]]]
+    values=rows
 )
 
 print("Meta updated")
