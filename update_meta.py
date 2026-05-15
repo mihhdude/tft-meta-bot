@@ -25,20 +25,16 @@ credentials = (
     )
 )
 
-client = gspread.authorize(
-    credentials
-)
+client = gspread.authorize(credentials)
 
 sheet = (
     client
-    .open("Meta TFT")
-    .worksheet("MetaTFT")
+    .open("Meta TFT")       # tên FILE
+    .worksheet("MetaTFT")   # tên TAB
 )
 
 print("Google OK")
 
-
-rows=[]
 
 with sync_playwright() as p:
 
@@ -61,18 +57,14 @@ with sync_playwright() as p:
         "body"
     ).inner_text()
 
-    rows.append(
-        [text[:1000]]
-    )
-
     browser.close()
 
 
 sheet.clear()
 
 sheet.update(
-    values=rows,
-    range_name="A1"
+    range_name="A1",
+    values=[[text[:3000]]]
 )
 
 print("Meta updated")
